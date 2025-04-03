@@ -1,0 +1,133 @@
+---
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+title: "Coding Challenge 7"
+author: "Theresa Quintana"
+date: "2025-04-03"
+output:
+  pdf_document:
+  md_document:
+      variant: gfm
+  html_document:
+    toc: true
+    toc_float: true
+  word_document:
+---
+You can find the corresponding documents to this assignment on my GitHub: 
+[Theresa's PLPA 6820 Github Access](https://github.com/taq-poly/PLPA6820.git)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+#Question 1.	4 pts. Read in the data called “PlantEmergence.csv” using a relative file path and load the following libraries. tidyverse, lme4, emmeans, multcomp, and multcompView. Turn the Treatment , DaysAfterPlanting  and Rep into factors using the function as.factor
+```{r}
+library(tidyverse)
+library(lme4)
+library(emmeans)
+library(multcomp)
+library(multcompView)
+
+
+emergence <- read.csv("PlantEmergence.csv", na.strings = "na")
+
+emergence$Treatment <- as.factor(emergence$Treatment)
+emergence$DaysAfterPlanting <- as.factor(emergence$DaysAfterPlanting)
+emergence$Rep <- as.factor(emergence$Rep)
+```
+
+
+#Question 2.	5 pts. Fit a linear model to predict Emergence using Treatment and DaysAfterPlanting along with the interaction. Provide the summary of the linear model and ANOVA results. 
+```{r}
+#Effect of one variable depends on the other; use the * sign to include the interaction
+lm.interaction <- lm(Emergence ~ Treatment*DaysAfterPlanting, data = emergence)
+summary(lm.interaction)
+anova(lm.interaction)
+```
+
+#Question 3.	5 pts. Based on the results of the linear model in question 2, do you need to fit the interaction term? No, because the p-value for the interaction (Treatment:DaysAfterPlanting) is 1, which is > 0.05 and so is not significant.
+
+#Provide a simplified linear model without the interaction term but still testing both main effects. Provide the summary and ANOVA results. Then, interpret the intercept and the coefficient for Treatment 2.
+
+#Interpretation from below code (simplified linear model) = Intercept is 182.163, so emergence is 182.163 with treatment one at 7 days after planting. The coefficient for Treatment 2 is -134.531, which means a decrease in emergence (y/dependent variable) of 134.531 when treatment 2 is applied compared to treatment 1, holding days after planting constant*
+
+```{r}
+#simplified = each variable impacts outcome, but they do not influence each others effect (independent&additive); use the + sign for independent variables
+simplified.lm <- lm(Emergence ~ Treatment + DaysAfterPlanting, data = emergence)
+
+summary(simplified.lm)
+anova(simplified.lm)
+
+```
+
+#Question 4.	5 pts. Calculate the least square means for Treatment using the emmeans package and perform a Tukey separation with the compact letter display using the cld function. 
+
+#Interpret the results - First we are calculating the average emergence for each treatment (controlling days after planting). Treatment 2 has the lowest emergence, while the rest look rather uniform. Next, we use the cdl to group the treatments to compared least square means for statistical differences. Treatments in the same or overlapping groups are not significantly different from one another (p > 0.05). The group numbers start at the lowest emergence (1) and increase (here the highest is 3). Treatment 2 is in its own group (significantly different from the rest) and the lowest emergence(1).  
+```{r}
+lsmeans <- emmeans(simplified.lm, ~Treatment)
+lsmeans
+
+results_lsmeans <- cld(lsmeans, alpha = 0.05, details = TRUE)
+results_lsmeans
+```
+
+
+#Question 5.	4 pts. The provided function lets you dynamically add a linear model plus one factor from that model and plots a bar chart with letters denoting treatment differences. Use this model to generate the plot shown below. 
+
+#Explain the significance of the letters - The letters have the same meaning as the numbers in the previous question. Treatments in the same or overlapping groups are not significantly different from one another (p > 0.05). The group numbers start at the highest emergence (a) and decrease (here the lowest is c). Treatment 2 is in its own group (significantly different from the rest) and the lowest emergence (c).
+```{r}
+plot_cldbars_onefactor <- function(lm_model, factor) {
+  data <- lm_model$model
+  variables <- colnames(lm_model$model)
+  dependent_var <- variables[1]
+  independent_var <- variables[2:length(variables)]
+
+  lsmeans <- emmeans(lm_model, as.formula(paste("~", factor))) # estimate lsmeans 
+  Results_lsmeans <- cld(lsmeans, alpha = 0.05, reversed = TRUE, details = TRUE, Letters = letters) # contrast with Tukey adjustment by default.
+  
+  # Extracting the letters for the bars
+  sig.diff.letters <- data.frame(Results_lsmeans$emmeans[,1], 
+                                 str_trim(Results_lsmeans$emmeans[,7]))
+  colnames(sig.diff.letters) <- c(factor, "Letters")
+  
+  # for plotting with letters from significance test
+  ave_stand2 <- lm_model$model %>%
+    group_by(!!sym(factor)) %>%
+    dplyr::summarize(
+      ave.emerge = mean(.data[[dependent_var]], na.rm = TRUE),
+      se = sd(.data[[dependent_var]]) / sqrt(n())
+    ) %>%
+    left_join(sig.diff.letters, by = factor) %>%
+    mutate(letter_position = ave.emerge + 10 * se)
+  
+  plot <- ggplot(data, aes(x = !! sym(factor), y = !! sym(dependent_var))) + 
+    stat_summary(fun = mean, geom = "bar") +
+    stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.5) +
+    ylab("Number of emerged plants") + 
+    geom_jitter(width = 0.02, alpha = 0.5) +
+    geom_text(data = ave_stand2, aes(label = Letters, y = letter_position), size = 5) +
+    xlab(as.character(factor)) +
+    theme_classic()
+  
+  return(plot)
+}
+
+plot_cldbars_onefactor(simplified.lm, "Treatment")
+
+```
+
+
+
+#Question 6.	2 pts. Generate the gfm .md file along with a .html, .docx, or .pdf. Commit, and push the .md file to github and turn in the .html, .docx, or .pdf to Canvas. Provide me a link here to your github.
+```{r}
+#Link to github is a clickable link at the top of the document.
+```
+
+
+
+
+
+
